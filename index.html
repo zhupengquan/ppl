@@ -555,6 +555,13 @@ function scheduleSync(){
   }, 2500);
 }
 
+$("cloudBtn").onclick = ()=>{
+  const p = $("cloudPanel");
+  if(!p) return;
+  p.open = true;
+  p.scrollIntoView({behavior:"smooth", block:"start"});
+};
+
 $("cConnect").onclick = async ()=>{
   const t = $("cToken").value.trim();
   const g = $("cGist").value.trim();
