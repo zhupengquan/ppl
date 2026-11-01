@@ -45,6 +45,12 @@ main{padding:12px}
 .exth{width:54px;height:37px;object-fit:cover;border-radius:7px;flex:none;cursor:pointer;border:1px solid #E2E8F0;background:#F1F5F9}
 .pk-item .pth{width:54px;height:37px;object-fit:cover;border-radius:7px;flex:none;background:#F1F5F9}
 .pk-item .pth.ph{display:block}
+.tag[data-g="胸"]{background:#FEE2E2;color:#B91C1C}
+.tag[data-g="背"]{background:#DBEAFE;color:#1D4ED8}
+.tag[data-g="腿"]{background:#FFEDD5;color:#C2410C}
+.tag[data-g="肩"]{background:#F3E8FF;color:#7E22CE}
+.tag[data-g="手臂"]{background:#DCFCE7;color:#15803D}
+.tag[data-g="核心"]{background:#FEF3C7;color:#B45309}
 .tag{font-size:11px;background:#F1F5F9;color:#64748B;border-radius:6px;padding:2px 7px;white-space:nowrap;flex:none;margin-top:1px}
 .del{border:0;background:transparent;color:#CBD5E1;font-size:20px;line-height:1;padding:0 2px;flex:none}
 .hint{font-size:12px;color:#94A3B8;margin:-4px 0 10px}
@@ -298,7 +304,7 @@ const COMMON = [
 "img": "img/e12.jpg"
 },
 {
-"n": "高位下拉",
+"n": "正手高位下拉",
 "e": "cable",
 "t": "lats",
 "g": "背",
@@ -590,6 +596,13 @@ const COMMON = [
 "t": "abs",
 "g": "核心",
 "img": "img/e54.jpg"
+},
+{
+"n": "反手高位下拉",
+"e": "cable",
+"t": "lats",
+"g": "背",
+"img": "img/e55.jpg"
 }
 ];
 
@@ -701,7 +714,7 @@ function renderDay(){
       <div class="exh">
         ${mv.img?`<img class="exth" src="${mv.img}" data-big="${mv.img}" data-bn="${encodeURIComponent(mv.n)}" alt="示范图">`:""}
         <b>${mv.n}</b>
-        ${meta?`<span class="tag">${meta}</span>`:""}
+        ${meta?`<span class="tag" data-g="${mv.g||""}">${meta}</span>`:""}
         <button class="del" data-del="${i}">×</button>
       </div>
       ${lastHtml}
@@ -794,7 +807,7 @@ function renderPkList(){
     const meta = [(EQ_CN[r.e]||r.e)||"", (TG_CN[r.t]||"")||""].filter(Boolean).join(" · ");
     return `<div class="pk-item" data-n="${encodeURIComponent(r.n)}" data-e="${encodeURIComponent(r.e||"")}" data-t="${encodeURIComponent(r.t||"")}" data-g="${encodeURIComponent(r.g||"")}" data-img="${encodeURIComponent(r.img||"")}">
       ${r.img?`<img class="pth" src="${r.img}" loading="lazy" alt="">`:`<span class="pth ph"></span>`}
-      <span class="nm">${r.n}</span><span class="mt">${meta}</span>
+      <span class="nm">${r.n}</span><span class="mt" data-g="${r.g||""}">${meta}</span>
     </div>`;
   }).join("");
   document.getElementById("pkList").innerHTML = items || `<p class="empty">没有匹配的动作</p>`;
