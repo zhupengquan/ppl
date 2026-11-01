@@ -693,7 +693,7 @@ function renderDay(){
   const v = lg ? dayVol(lg) : 0;
   const head = `<div class="dayhead">
       <span>${sel.slice(5).replace("-","/")} ${wdName(sel)}</span>
-      <span class="cnt">${moves.length} 个动作${v>0?" · "+Math.round(v)+"kg":""}</span>
+      <span class="cnt">${moves.length} 个动作</span>
     </div>`;
 
   if(!moves.length){
@@ -744,7 +744,7 @@ function renderDay(){
       store();
       const v2 = dayVol(mem.logs[sel]);
       const cnt = document.querySelector("#dayCard .dayhead .cnt");
-      if(cnt) cnt.textContent = `${mem.logs[sel].moves.length} 个动作${v2>0?" · "+Math.round(v2)+"kg":""}`;
+      if(cnt) cnt.textContent = `${mem.logs[sel].moves.length} 个动作`;
     };
   });
   document.querySelectorAll("#dayCard .exth").forEach(im=>{
