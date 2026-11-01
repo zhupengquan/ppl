@@ -42,6 +42,11 @@ main{padding:12px}
 .ex{padding:14px;border-top:1px solid #F1F5F9}
 .exh{display:flex;align-items:flex-start;gap:8px;margin-bottom:10px}
 .exh b{font-size:15px;flex:1;min-width:0;line-height:1.35}
+.wline{display:flex;align-items:center;gap:7px;margin:0 0 10px}
+.wl{font-size:12px;color:#94A3B8;flex:none}
+.wmini{width:70px;background:#F8FAFC;border:1px solid #E2E8F0;border-radius:9px;padding:5px 8px;font-size:14px;text-align:center;font-weight:700;color:#0F172A;outline:none;font-family:inherit}
+.wmini:focus{border-color:#2563EB;background:#fff}
+.wu{font-size:12px;color:#94A3B8;flex:none}
 .exth{width:46px;height:46px;object-fit:cover;border-radius:10px;flex:none;cursor:pointer;background:#0D1422}
 .pk-item .pth{width:46px;height:46px;object-fit:cover;border-radius:10px;flex:none;background:#0D1422}
 .pk-item .pth.ph{display:block;background:#F1F5F9}
@@ -718,9 +723,10 @@ function renderDay(){
         <button class="del" data-del="${i}">×</button>
       </div>
       ${lastHtml}
-      <div class="grid">
-        <div class="f"><label>重量 kg</label><input inputmode="decimal" data-i="${i}" data-k="w" value="${mv.w||""}" placeholder="0"></div>
-        <div class="f"><label>剩余次数</label><input inputmode="numeric" data-i="${i}" data-k="r" value="${mv.r||""}" placeholder="—"></div>
+      <div class="wline">
+        <span class="wl">重量</span>
+        <input class="wmini" inputmode="decimal" data-i="${i}" data-k="w" value="${mv.w||""}" placeholder="0">
+        <span class="wu">kg</span>
       </div>
       <div class="sets">${sets}</div>
     </section>`;
