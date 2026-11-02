@@ -56,6 +56,9 @@ main{padding:12px}
 .tag[data-g="肩"]{background:#F3E8FF;color:#7E22CE}
 .tag[data-g="手臂"]{background:#DCFCE7;color:#15803D}
 .tag[data-g="核心"]{background:#FEF3C7;color:#B45309}
+.tag[data-g="有氧"]{background:#CCFBF1;color:#0F766E}
+.wnote{width:100%;border:1px solid #E2E8F0;background:#F8FAFC;border-radius:9px;padding:6px 9px;font-size:13px;color:#334155;font-family:inherit;outline:none}
+.wnote:focus{border-color:#2563EB;background:#fff}
 .tag{font-size:11px;background:#F1F5F9;color:#64748B;border-radius:6px;padding:2px 7px;white-space:nowrap;flex:none;margin-top:1px}
 .del{border:0;background:transparent;color:#CBD5E1;font-size:20px;line-height:1;padding:0 2px;flex:none}
 .hint{font-size:12px;color:#94A3B8;margin:-4px 0 10px}
@@ -608,6 +611,70 @@ const COMMON = [
 "t": "lats",
 "g": "背",
 "img": "img/e55.jpg"
+},
+{
+"n": "跑步机",
+"e": "cardio",
+"t": "cardio",
+"g": "有氧",
+"img": "img/e56.jpg",
+"cardio": true
+},
+{
+"n": "跑步机爬坡",
+"e": "cardio",
+"t": "cardio",
+"g": "有氧",
+"img": "img/e57.jpg",
+"cardio": true
+},
+{
+"n": "椭圆机",
+"e": "cardio",
+"t": "cardio",
+"g": "有氧",
+"img": "img/e58.jpg",
+"cardio": true
+},
+{
+"n": "动感单车",
+"e": "cardio",
+"t": "cardio",
+"g": "有氧",
+"img": "img/e59.jpg",
+"cardio": true
+},
+{
+"n": "划船机",
+"e": "cardio",
+"t": "cardio",
+"g": "有氧",
+"img": "img/e60.jpg",
+"cardio": true
+},
+{
+"n": "爬楼机",
+"e": "cardio",
+"t": "cardio",
+"g": "有氧",
+"img": "img/e61.jpg",
+"cardio": true
+},
+{
+"n": "跳绳",
+"e": "cardio",
+"t": "cardio",
+"g": "有氧",
+"img": "img/e62.jpg",
+"cardio": true
+},
+{
+"n": "开合跳",
+"e": "cardio",
+"t": "cardio",
+"g": "有氧",
+"img": "img/e63.jpg",
+"cardio": true
 }
 ];
 
@@ -615,8 +682,8 @@ const EQ_CN = {"body weight":"自重","dumbbell":"哑铃","cable":"绳索","barb
 const TG_CN = {"abs":"腹肌","glutes":"臀","quads":"股四头","delts":"三角肌","pectorals":"胸","lats":"背阔肌","biceps":"二头","triceps":"三头","calves":"小腿","upper back":"上背","hamstrings":"腘绳肌","cardiovascular system":"心肺","spine":"竖脊肌","forearms":"前臂","abductors":"外展肌","adductors":"内收肌","levator scapulae":"肩胛提肌","traps":"斜方肌","serratus anterior":"前锯肌"};
 const BP_CN = {"chest":"胸","back":"背","shoulders":"肩","upper-arms":"手臂","lower-arms":"前臂","upper-legs":"腿","lower-legs":"小腿","waist":"核心","neck":"颈","full-body":"全身","cardio":"有氧"};
 
-const TG2G = {pectorals:"胸",lats:"背","upper back":"背",traps:"背",spine:"背",delts:"肩",biceps:"臂",triceps:"臂",forearms:"臂",abs:"核心",quads:"腿",hamstrings:"腿",glutes:"腿",calves:"腿",adductors:"腿",abductors:"腿","cardiovascular system":"其他"};
-const GRPS = ["胸","背","腿","肩","臂","核心"];
+const TG2G = {pectorals:"胸",lats:"背","upper back":"背",traps:"背",spine:"背",delts:"肩",biceps:"手臂",triceps:"手臂",forearms:"手臂",abs:"核心",quads:"腿",hamstrings:"腿",glutes:"腿",calves:"腿",adductors:"腿",abductors:"腿",cardio:"有氧","cardiovascular system":"有氧"};
+const GRPS = ["胸","背","腿","肩","手臂","核心","有氧"];
 
 
 const KEY = "ppl_log_v2";
@@ -653,7 +720,7 @@ function migrate(){
 }
 function store(){ try{ localStorage.setItem(KEY, JSON.stringify(mem)); }catch(e){} if(typeof scheduleSync==="function") scheduleSync(); }
 
-function blankMove(o){ return {n:o.n||"", e:o.e||"", t:o.t||"", g:o.g||"", img:o.img||"", w:"", s:["","","",""], r:""}; }
+function blankMove(o){ return {n:o.n||"", e:o.e||"", t:o.t||"", g:o.g||"", img:o.img||"", w:"", s:["","","",""], r:"", cardio:!!o.cardio, dur:"", note:""}; }
 function dayLog(d){ if(!mem.logs[d]) mem.logs[d]={moves:[]}; return mem.logs[d]; }
 function volOf(mv){ const w=Number(mv.w)||0; return w*(mv.s||[]).reduce((a,v)=>a+(Number(v)||0),0); }
 function dayVol(lg){ return (lg.moves||[]).reduce((a,m)=>a+volOf(m),0); }
@@ -705,7 +772,27 @@ function renderDay(){
   const body = moves.map((mv,i)=>{
     const tg = (TG_CN[mv.t]||mv.t||"");
     const eq = (EQ_CN[mv.e]||mv.e||"");
-    const meta = [eq,tg].filter(Boolean).join(" · ");
+    const meta = [eq,tg].filter(x=>x&&x!=="cardio").join(" · ");
+    if(mv.cardio){
+      const pc = lastOf(mv.n);
+      const phtml = pc ? `<div class="last">上次 <b>${pc.d.slice(5)}</b> · ${pc.dur||"—"} 分钟</div>`
+                       : `<div class="last">第一次做 · 记个基线</div>`;
+      return `<section class="ex">
+        <div class="exh">
+          ${mv.img?`<img class="exth" src="${mv.img}" data-big="${mv.img}" data-bn="${encodeURIComponent(mv.n)}" alt="示范图">`:""}
+          <b>${mv.n}</b>
+          <span class="tag" data-g="有氧">有氧</span>
+          <button class="del" data-del="${i}">×</button>
+        </div>
+        ${phtml}
+        <div class="wline">
+          <span class="wl">时长</span>
+          <input class="wmini" inputmode="numeric" data-i="${i}" data-k="dur" value="${mv.dur||""}" placeholder="0">
+          <span class="wu">分钟</span>
+        </div>
+        <input class="wnote" data-i="${i}" data-k="note" value="${mv.note||""}" placeholder="强度 / 坡度 / 距离，可不填">
+      </section>`;
+    }
     const last = lastOf(mv.n);
     let lastHtml = `<div class="last">第一次练 · 记个基线</div>`;
     if(last){
@@ -766,14 +853,14 @@ function lastOf(name){
   const ds = Object.keys(mem.logs).filter(d=> d<sel).sort().reverse();
   for(const d of ds){
     const m = (mem.logs[d].moves||[]).find(x=>x.n===name);
-    if(m && (m.w!==""||(m.s||[]).some(x=>x!==""))) return {d:d, w:m.w, s:m.s};
+    if(m && (m.w!==""||(m.s||[]).some(x=>x!=="")||m.dur)) return {d:d, w:m.w, s:m.s, dur:m.dur, note:m.note};
   }
   return null;
 }
 
 // ---------- 动作选择器 ----------
 let pkTab = "全部", pkQuery = "";
-const PK_TABS = ["全部","胸","背","腿","肩","手臂","核心"];
+const PK_TABS = ["全部","胸","背","腿","肩","手臂","核心","有氧"];
 
 function openImg(src, name){
   if(!src) return;
@@ -811,7 +898,7 @@ function renderPkList(){
   const rows = pkRows();
   const items = rows.map(r=>{
     const meta = [(EQ_CN[r.e]||r.e)||"", (TG_CN[r.t]||"")||""].filter(Boolean).join(" · ");
-    return `<div class="pk-item" data-n="${encodeURIComponent(r.n)}" data-e="${encodeURIComponent(r.e||"")}" data-t="${encodeURIComponent(r.t||"")}" data-g="${encodeURIComponent(r.g||"")}" data-img="${encodeURIComponent(r.img||"")}">
+    return `<div class="pk-item" data-n="${encodeURIComponent(r.n)}" data-e="${encodeURIComponent(r.e||"")}" data-t="${encodeURIComponent(r.t||"")}" data-g="${encodeURIComponent(r.g||"")}" data-c="${r.cardio?1:0}" data-img="${encodeURIComponent(r.img||"")}">
       ${r.img?`<img class="pth" src="${r.img}" loading="lazy" alt="">`:`<span class="pth ph"></span>`}
       <span class="nm">${r.n}</span><span class="mt" data-g="${r.g||""}">${meta}</span>
     </div>`;
@@ -819,7 +906,7 @@ function renderPkList(){
   document.getElementById("pkList").innerHTML = items || `<p class="empty">没有匹配的动作</p>`;
   document.querySelectorAll("#pkList .pk-item").forEach(el=>{
     el.onclick = ()=>{
-      const mv = blankMove({n:decodeURIComponent(el.dataset.n), e:decodeURIComponent(el.dataset.e), t:decodeURIComponent(el.dataset.t), g:decodeURIComponent(el.dataset.g)});
+      const mv = blankMove({n:decodeURIComponent(el.dataset.n), e:decodeURIComponent(el.dataset.e), t:decodeURIComponent(el.dataset.t), g:decodeURIComponent(el.dataset.g), cardio:el.dataset.c==="1"});
       mv.img = decodeURIComponent(el.dataset.img);
       dayLog(sel).moves.push(mv);
       store(); renderCal(); renderDay(); closePicker();
@@ -845,18 +932,20 @@ function weekStats(start){
   const days = [];
   for(let i=0;i<7;i++) days.push(shiftDays(start,i));
   const sess = days.filter(d=> mem.logs[d] && (mem.logs[d].moves||[]).length);
-  let vol = 0; const grp = {}; const sets = {};
+  let vol = 0; const grp = {}; const sets = {}; let cardioMin = 0;
   sess.forEach(d=>{
     const lg = mem.logs[d];
     vol += dayVol(lg);
     lg.moves.forEach(m=>{
+      if(m.cardio){ cardioMin += Number(m.dur)||0; grp["有氧"] = (grp["有氧"]||0)+1; return; }
       const g = grpOf(m);
       const ns = (m.s||[]).filter(x=>x!=="").length || 0;
       grp[g] = (grp[g]||0) + ns;
       sets[g] = (sets[g]||0) + 1;
     });
   });
-  return {days, sess, vol, grp};
+  const totSets = Object.keys(grp).reduce((a,k)=> k==="有氧" ? a : a+grp[k], 0);
+  return {days, sess, vol, grp, totSets, cardioMin};
 }
 function renderWeek(){
   const w1 = mondayOf(sel);
@@ -867,6 +956,10 @@ function renderWeek(){
   const maxG = Math.max(1, ...GRPS.map(g=>a.grp[g]||0));
 
   const bars = GRPS.map(g=>{
+    if(g==="有氧"){
+      const m = a.cardioMin||0;
+      return `<div class="bar"><span class="lb">${g}</span><span class="tr"><span class="fi" style="width:${Math.min(100,Math.round(m/150*100))}%;background:#0D9488"></span></span><span class="vl">${m} 分钟</span></div>`;
+    }
     const v = a.grp[g]||0;
     const w = Math.round(v/maxG*100);
     return `<div class="bar"><span class="lb">${g}</span><span class="tr"><span class="fi" style="width:${w}%"></span></span><span class="vl">${v} 组</span></div>`;
@@ -874,14 +967,14 @@ function renderWeek(){
 
   const rows = a.days.filter(d=> mem.logs[d] && (mem.logs[d].moves||[]).length).map(d=>{
     const lg = mem.logs[d];
-    return `<div class="wk-row"><span>${d.slice(5).replace("-","/")} ${wdName(d)}</span><span>${lg.moves.length} 个动作 · ${Math.round(dayVol(lg))}kg</span></div>`;
+    return `<div class="wk-row"><span>${d.slice(5).replace("-","/")} ${wdName(d)}</span><span>${lg.moves.length} 个动作</span></div>`;
   }).join("") || `<p class="empty">这周还没有训练记录</p>`;
 
   document.getElementById("wkBody").innerHTML = `
     <div style="font-size:13px;color:#64748B;margin-bottom:12px">${w1.slice(5).replace("-","/")} — ${shiftDays(w1,6).slice(5).replace("-","/")}</div>
     <div class="wk-big">
       <div><span>训练次数</span><b>${a.sess.length}</b></div>
-      <div><span>总容量 kg</span><b>${Math.round(a.vol)}</b></div>
+      <div><span>总组数</span><b>${a.totSets}</b></div>
       <div><span>较上周</span><b>${dTxt}</b></div>
     </div>
     <div class="wk-sec">各部位组数</div>
@@ -889,7 +982,7 @@ function renderWeek(){
     <div class="wk-sec">本周明细</div>
     ${rows}
     <div class="wk-sec">上周对比</div>
-    <div class="wk-row"><span>上周训练</span><span>${b.sess.length} 次 · ${Math.round(b.vol)}kg</span></div>`;
+    <div class="wk-row"><span>上周训练</span><span>${b.sess.length} 次</span></div>`;
   document.getElementById("wkPanel").classList.remove("hidden");
 }
 
@@ -1041,7 +1134,7 @@ document.getElementById("imClose").onclick = ()=> document.getElementById("imgSh
 document.getElementById("save").onclick = ()=>{
   if(!mem.logs[sel] || !(mem.logs[sel].moves||[]).length){ toast("这天还是空的，先加动作"); return; }
   store(); renderCal();
-  toast("已保存 · "+Math.round(dayVol(mem.logs[sel]))+"kg");
+  toast("已保存 · "+mem.logs[sel].moves.length+" 个动作");
 };
 document.getElementById("exp").onclick = exportCsv;
 
