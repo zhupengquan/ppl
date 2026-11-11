@@ -34,6 +34,26 @@ main{padding:12px}
 .cd.today{outline:2px solid #93C5FD;outline-offset:-2px}
 .cd.sel{outline:3px solid #2563EB;outline-offset:-3px}
 .cd .pd{position:absolute;bottom:5px;width:4px;height:4px;border-radius:2px;background:rgba(255,255,255,.55)}
+.cd .pdots{position:absolute;bottom:4px;left:0;right:0;display:flex;gap:2.5px;justify-content:center}
+.cd .pdots i{width:4.5px;height:4.5px;border-radius:50%;display:block}
+.cd.sel .pdots i{box-shadow:0 0 0 1px rgba(255,255,255,.35)}
+.prow{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.prow label{width:44px;font-size:14px;color:#475569}
+.prow input{flex:1;border:1px solid #E2E8F0;background:#F8FAFC;border-radius:10px;padding:9px 12px;font-size:16px;font-weight:700;color:#1E293B;font-family:inherit;outline:none;text-align:center}
+.prow input:focus{border-color:#2563EB;background:#fff}
+.prow span{font-size:13px;color:#94A3B8;width:22px}
+.pbtn{width:100%;border:0;background:#2563EB;color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:600;margin-top:4px;font-family:inherit}
+.phint{font-size:12px;color:#94A3B8;line-height:1.6;margin:12px 0 0}
+.bmibox{background:#F8FAFC;border-radius:12px;padding:14px;margin-bottom:18px;text-align:center}
+.bmibox .bv{font-size:28px;font-weight:800;color:#1E293B;line-height:1.1}
+.bmibox .bl{font-size:12px;color:#64748B;margin-top:5px}
+.bmibox .bt{font-size:12px;margin-top:8px;font-weight:600}
+.lastcard{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:2px}
+.lastcard .li{font-size:12.5px;color:#475569;background:#F8FAFC;border-radius:8px;padding:5px 10px}
+.lastcard .li b{color:#1E293B}
+.up{font-size:11px;font-weight:700;color:#059669;background:#D1FAE5;border-radius:6px;padding:1px 6px}
+.down{font-size:11px;font-weight:700;color:#B45309;background:#FEF3C7;border-radius:6px;padding:1px 6px}
+.same{font-size:11px;font-weight:600;color:#94A3B8;background:#F1F5F9;border-radius:6px;padding:1px 6px}
 
 /* 当日 */
 .dayhead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;font-size:14px;font-weight:600}
@@ -136,7 +156,7 @@ main{padding:12px}
   <div class="hrow">
     <h1>训练日志</h1>
     <div class="hbtns">
-      <button id="wkBtn">周总结</button>
+      <button id="meBtn">我的</button>
       <button id="cloudBtn">本地</button>
     </div>
   </div>
@@ -154,6 +174,7 @@ main{padding:12px}
     <div class="cgrid" id="calGrid"></div>
   </section>
 
+  <section class="card" id="lastCard" style="display:none"></section>
   <section class="card" id="dayCard"></section>
   <button class="addbtn" id="addBtn">+ 添加动作</button>
 </main>
@@ -183,13 +204,20 @@ main{padding:12px}
   </div>
 </div>
 
-<div class="sheet hidden" id="wkPanel">
+<div class="sheet hidden" id="mePanel">
   <div class="sheet-head">
-    <button id="wkClose">关闭</button>
-    <b>周总结</b>
+    <button id="meClose">关闭</button>
+    <b>我的</b>
     <span style="width:34px"></span>
   </div>
-  <div class="wk-body" id="wkBody"></div>
+  <div class="wk-body">
+    <div id="bmiBox" class="bmibox"></div>
+    <div class="prow"><label>身高</label><input id="pHeight" inputmode="numeric" placeholder="170"><span>cm</span></div>
+    <div class="prow"><label>体重</label><input id="pWeight" inputmode="decimal" placeholder="65"><span>kg</span></div>
+    <div class="prow"><label>年龄</label><input id="pAge" inputmode="numeric" placeholder="24"><span>岁</span></div>
+    <button class="pbtn" id="pSave">保存</button>
+    <p class="phint">身高体重只用来算 BMI，存在本机不上传。</p>
+  </div>
 </div>
 
 <div class="sheet hidden" id="cloudSheet">
@@ -684,11 +712,12 @@ const BP_CN = {"chest":"胸","back":"背","shoulders":"肩","upper-arms":"手臂
 
 const TG2G = {pectorals:"胸",lats:"背","upper back":"背",traps:"背",spine:"背",delts:"肩",biceps:"手臂",triceps:"手臂",forearms:"手臂",abs:"核心",quads:"腿",hamstrings:"腿",glutes:"腿",calves:"腿",adductors:"腿",abductors:"腿",cardio:"有氧","cardiovascular system":"有氧"};
 const GRPS = ["胸","背","腿","肩","手臂","核心","有氧"];
+const GC = {"胸":"#EF4444","背":"#3B82F6","腿":"#F97316","肩":"#A855F7","手臂":"#22C55E","核心":"#EAB308","有氧":"#14B8A6"};
 
 
 const KEY = "ppl_log_v2";
 const KEY_OLD = "ppl_log_v1";
-let mem = {v:2, logs:{}, draft:{}};
+let mem = {v:2, logs:{}, draft:{}, profile:{}};
 let sel = todayStr();
 let calY, calM;
 
@@ -745,7 +774,16 @@ function renderCal(){
     const lg = mem.logs[ds];
     const has = lg && (lg.moves||[]).length;
     const cls = "cd"+(has?" has":"")+(ds===todayStr()?" today":"")+(ds===sel?" sel":"");
-    html += `<button class="${cls}" data-d="${ds}">${d}</button>`;
+    let dots = "";
+    if(has){
+      const gs = [];
+      (lg.moves||[]).forEach(m=>{
+        const g = m.cardio ? "有氧" : grpOf(m);
+        if(gs.indexOf(g)<0) gs.push(g);
+      });
+      dots = `<span class="pdots">${gs.slice(0,4).map(g=>`<i style="background:${GC[g]||"#94A3B8"}"></i>`).join("")}</span>`;
+    }
+    html += `<button class="${cls}" data-d="${ds}">${d}${dots}</button>`;
   }
   document.getElementById("calGrid").innerHTML = html;
   document.querySelectorAll(".cd[data-d]").forEach(b=>{
@@ -754,7 +792,24 @@ function renderCal(){
 }
 
 // ---------- 当日 ----------
+function renderLast(){
+  const el = document.getElementById("lastCard");
+  const ds = Object.keys(mem.logs).filter(d=> d<sel && (mem.logs[d].moves||[]).length).sort().reverse()[0];
+  if(!ds){ el.style.display="none"; return; }
+  el.style.display="";
+  const lg = mem.logs[ds];
+  const items = (lg.moves||[]).map(m=>{
+    if(m.cardio) return `<span class="li"><b>${m.n}</b> ${m.dur||"—"} 分钟</span>`;
+    const reps = (m.s||[]).filter(x=>x!=="").join("/")||"—";
+    const w = Number(m.w)>0 ? `${m.w}kg` : "自重";
+    return `<span class="li"><b>${m.n}</b> ${w} · ${reps}</span>`;
+  }).join("");
+  el.innerHTML = `<div class="dayhead"><span>上次训练 · ${ds.slice(5).replace("-","/")} ${wdName(ds)}</span><span class="cnt">${lg.moves.length} 个动作</span></div><div class="lastcard">${items}</div>`;
+  el.onclick = ()=>{ sel = ds; renderCal(); renderDay(); window.scrollTo({top:0,behavior:"smooth"}); };
+}
+
 function renderDay(){
+  renderLast();
   const lg = mem.logs[sel];
   const moves = lg ? (lg.moves||[]) : [];
   const v = lg ? dayVol(lg) : 0;
@@ -798,7 +853,7 @@ function renderDay(){
     if(last){
       const wTxt = Number(last.w)>0 ? `<b>${last.w}kg</b>` : `<b>自重</b>`;
       const reps = (last.s||[]).filter(x=>x!=="").join("/")||"—";
-      lastHtml = `<div class="last">上次 <b>${last.d.slice(5)}</b> · ${wTxt} · ${reps}</div>`;
+      lastHtml = `<div class="last">上次 <b>${last.d.slice(5)}</b> · ${wTxt} · ${reps} <span class="cmpslot" data-cmp="${i}"></span></div>`;
     }
     const sets = [0,1,2,3].map(j=>
       `<div class="f"><label>第${j+1}组</label><input inputmode="numeric" data-i="${i}" data-j="${j}" value="${(mv.s&&mv.s[j])||""}" placeholder="—"></div>`).join("");
@@ -821,6 +876,25 @@ function renderDay(){
 
   document.getElementById("dayCard").innerHTML = head + body;
 
+  function cmpBadge(i){
+    const mv = mem.logs[sel].moves[i];
+    const slot = document.querySelector(`.cmpslot[data-cmp="${i}"]`);
+    if(!slot) return;
+    const last = lastOf(mv.n);
+    if(!last){ slot.innerHTML=""; return; }
+    const curW = Number(mv.w)||0, lastW = Number(last.w)||0;
+    const sum = a => (a||[]).filter(x=>x!=="").reduce((s,b)=>s+(Number(b)||0),0);
+    const curS = sum(mv.s), lastS = sum(last.s);
+    if(curW>0 && lastW>0 && curW!==lastW){
+      const d = +(curW-lastW).toFixed(1);
+      slot.innerHTML = d>0 ? `<span class="up">↑ +${d}kg</span>` : `<span class="down">↓ ${d}kg</span>`;
+    } else if(curS>0 && lastS>0 && curS!==lastS){
+      const d = curS-lastS;
+      slot.innerHTML = d>0 ? `<span class="up">↑ +${d} 次</span>` : `<span class="down">↓ ${d} 次</span>`;
+    } else slot.innerHTML = "";
+  }
+  for(let i=0;i<moves.length;i++) cmpBadge(i);
+
   document.querySelectorAll("#dayCard input").forEach(inp=>{
     inp.oninput = ()=>{
       const i = +inp.dataset.i;
@@ -829,9 +903,9 @@ function renderDay(){
       else { mv.s = mv.s||["","","",""]; mv.s[+inp.dataset.j] = inp.value; }
       mem.logs[sel].moves[i] = mv;
       store();
-      const v2 = dayVol(mem.logs[sel]);
       const cnt = document.querySelector("#dayCard .dayhead .cnt");
       if(cnt) cnt.textContent = `${mem.logs[sel].moves.length} 个动作`;
+      cmpBadge(i);
     };
   });
   document.querySelectorAll("#dayCard .exth").forEach(im=>{
@@ -947,45 +1021,6 @@ function weekStats(start){
   const totSets = Object.keys(grp).reduce((a,k)=> k==="有氧" ? a : a+grp[k], 0);
   return {days, sess, vol, grp, totSets, cardioMin};
 }
-function renderWeek(){
-  const w1 = mondayOf(sel);
-  const w2 = shiftDays(w1,-7);
-  const a = weekStats(w1), b = weekStats(w2);
-  const diff = b.vol>0 ? Math.round((a.vol-b.vol)/b.vol*100) : 0;
-  const dTxt = diff>0?`+${diff}%`:(diff<0?`${diff}%`:"—");
-  const maxG = Math.max(1, ...GRPS.map(g=>a.grp[g]||0));
-
-  const bars = GRPS.map(g=>{
-    if(g==="有氧"){
-      const m = a.cardioMin||0;
-      return `<div class="bar"><span class="lb">${g}</span><span class="tr"><span class="fi" style="width:${Math.min(100,Math.round(m/150*100))}%;background:#0D9488"></span></span><span class="vl">${m} 分钟</span></div>`;
-    }
-    const v = a.grp[g]||0;
-    const w = Math.round(v/maxG*100);
-    return `<div class="bar"><span class="lb">${g}</span><span class="tr"><span class="fi" style="width:${w}%"></span></span><span class="vl">${v} 组</span></div>`;
-  }).join("");
-
-  const rows = a.days.filter(d=> mem.logs[d] && (mem.logs[d].moves||[]).length).map(d=>{
-    const lg = mem.logs[d];
-    return `<div class="wk-row"><span>${d.slice(5).replace("-","/")} ${wdName(d)}</span><span>${lg.moves.length} 个动作</span></div>`;
-  }).join("") || `<p class="empty">这周还没有训练记录</p>`;
-
-  document.getElementById("wkBody").innerHTML = `
-    <div style="font-size:13px;color:#64748B;margin-bottom:12px">${w1.slice(5).replace("-","/")} — ${shiftDays(w1,6).slice(5).replace("-","/")}</div>
-    <div class="wk-big">
-      <div><span>训练次数</span><b>${a.sess.length}</b></div>
-      <div><span>总组数</span><b>${a.totSets}</b></div>
-      <div><span>较上周</span><b>${dTxt}</b></div>
-    </div>
-    <div class="wk-sec">各部位组数</div>
-    ${bars}
-    <div class="wk-sec">本周明细</div>
-    ${rows}
-    <div class="wk-sec">上周对比</div>
-    <div class="wk-row"><span>上周训练</span><span>${b.sess.length} 次</span></div>`;
-  document.getElementById("wkPanel").classList.remove("hidden");
-}
-
 // ---------- 导出 ----------
 function exportCsv(){
   const rows = [["日期","动作","器械","肌群","重量","第1组","第2组","第3组","第4组","剩余"]];
@@ -1128,8 +1163,43 @@ document.getElementById("nextM").onclick = ()=>{ calM++; if(calM>12){calM=1;calY
 document.getElementById("addBtn").onclick = openPicker;
 document.getElementById("pkClose").onclick = closePicker;
 document.getElementById("pkQ").oninput = e=>{ pkQuery=e.target.value; renderPkList(); };
-document.getElementById("wkBtn").onclick = renderWeek;
-document.getElementById("wkClose").onclick = ()=> document.getElementById("wkPanel").classList.add("hidden");
+function drawBmi(){
+  const h = Number(document.getElementById("pHeight").value)||0;
+  const w = Number(document.getElementById("pWeight").value)||0;
+  const box = document.getElementById("bmiBox");
+  if(h>0 && w>0){
+    const v = w/Math.pow(h/100,2);
+    let t="", c="#1E293B";
+    if(v<18.5){t="偏瘦";c="#2563EB";}
+    else if(v<24){t="正常";c="#059669";}
+    else if(v<28){t="偏重";c="#B45309";}
+    else {t="偏胖";c="#B91C1C";}
+    box.innerHTML = `<div class="bv" style="color:${c}">${v.toFixed(1)}</div><div class="bl">BMI 指数</div><div class="bt" style="color:${c}">${t}</div>`;
+  } else {
+    box.innerHTML = `<div class="bv" style="color:#CBD5E1">—</div><div class="bl">填了身高体重自动算</div>`;
+  }
+}
+function openMe(){
+  const p = mem.profile||{};
+  document.getElementById("pHeight").value = p.h||"";
+  document.getElementById("pWeight").value = p.w||"";
+  document.getElementById("pAge").value = p.a||"";
+  drawBmi();
+  document.getElementById("mePanel").classList.remove("hidden");
+}
+document.getElementById("meBtn").onclick = openMe;
+document.getElementById("meClose").onclick = ()=> document.getElementById("mePanel").classList.add("hidden");
+["pHeight","pWeight","pAge"].forEach(id=>{ document.getElementById(id).oninput = drawBmi; });
+document.getElementById("pSave").onclick = ()=>{
+  mem.profile = {
+    h: document.getElementById("pHeight").value,
+    w: document.getElementById("pWeight").value,
+    a: document.getElementById("pAge").value
+  };
+  store();
+  document.getElementById("mePanel").classList.add("hidden");
+  toast("已保存");
+};
 document.getElementById("imClose").onclick = ()=> document.getElementById("imgSheet").classList.add("hidden");
 document.getElementById("save").onclick = ()=>{
   if(!mem.logs[sel] || !(mem.logs[sel].moves||[]).length){ toast("这天还是空的，先加动作"); return; }
