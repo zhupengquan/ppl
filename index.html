@@ -45,6 +45,9 @@ main{padding:12px}
 .pbtn{width:100%;border:0;background:#2563EB;color:#fff;border-radius:12px;padding:13px;font-size:15px;font-weight:600;margin-top:4px;font-family:inherit}
 .phint{font-size:12px;color:#94A3B8;line-height:1.6;margin:12px 0 0}
 .bmibox{background:#F8FAFC;border-radius:12px;padding:14px;margin-bottom:18px;text-align:center}
+.psep{height:1px;background:#F1F5F9;margin:18px 0}
+.pbtn2{width:100%;border:1px solid #E2E8F0;background:#fff;color:#334155;border-radius:12px;padding:12px;font-size:14px;font-weight:600;margin-bottom:10px;font-family:inherit}
+.pbtn2:active{background:#F8FAFC}
 .bmibox .bv{font-size:28px;font-weight:800;color:#1E293B;line-height:1.1}
 .bmibox .bl{font-size:12px;color:#64748B;margin-top:5px}
 .bmibox .bt{font-size:12px;margin-top:8px;font-weight:600}
@@ -217,6 +220,12 @@ main{padding:12px}
     <div class="prow"><label>年龄</label><input id="pAge" inputmode="numeric" placeholder="24"><span>岁</span></div>
     <button class="pbtn" id="pSave">保存</button>
     <p class="phint">身高体重只用来算 BMI，存在本机不上传。</p>
+    <div class="psep"></div>
+    <button class="pbtn2" id="impCsv">导入 CSV 记录</button>
+    <button class="pbtn2" id="impJson">导入 JSON 备份</button>
+    <input type="file" id="fileCsv" accept=".csv,text/csv" style="display:none">
+    <input type="file" id="fileJson" accept=".json,application/json" style="display:none">
+    <p class="phint" id="impHint">导入是合并：同一天同一个动作会被新数据覆盖，其他记录保留不动。</p>
   </div>
 </div>
 
@@ -1199,6 +1208,136 @@ document.getElementById("pSave").onclick = ()=>{
   store();
   document.getElementById("mePanel").classList.add("hidden");
   toast("已保存");
+};
+
+// ---------- 导入 ----------
+function splitCsv(line){
+  const out=[]; let cur="", q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){
+      if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else q=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') q=true;
+      else if(ch===','){ out.push(cur); cur=""; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out.map(s=>s.trim());
+}
+const EX_MOD = /^(杠铃|哑铃|绳索|器械|固定器械|史密斯|单臂|坐姿|站姿|上斜|下斜|平板|俯身|颈后|过顶|窄距|宽距|锤式|牧师凳|悬垂|反向|交替|双杠)/;
+function coreName(s){ return s.replace(EX_MOD, "").replace(/^[\/\s]+/, "").trim(); }
+function lcsLen(a,b){
+  let m=0;
+  for(let i=0;i<a.length;i++){
+    for(let j=0;j<b.length;j++){
+      let k=0;
+      while(a[i+k] && b[j+k] && a[i+k]===b[j+k]) k++;
+      if(k>m) m=k;
+    }
+  }
+  return m;
+}
+function overlapScore(a,b){
+  const B = b.split("");
+  let n = 0;
+  a.split("").forEach(ch=>{ const i = B.indexOf(ch); if(i>=0){ n++; B.splice(i,1); } });
+  return n;
+}
+function findEx(name){
+  const clean = String(name||"").replace(/\s+/g," ").trim();
+  if(!clean) return null;
+  let c = COMMON.find(x=> x.n===clean); if(c) return c;
+  const parts = clean.split("/").map(s=>s.trim()).filter(Boolean);
+  for(const p of parts){ c = COMMON.find(x=> x.n===p); if(c) return c; }
+  const q = clean.replace(/[\/\s·]/g,"");
+  const cands = [];
+  COMMON.forEach(x=>{
+    const cn = x.n.replace(/[\/\s·]/g,"");
+    const ov = overlapScore(q, cn);
+    if(ov>=2) cands.push({x:x, ov:ov, ratio: ov/q.length});
+  });
+  if(!cands.length) return null;
+  cands.sort((a,b)=> b.ratio-a.ratio || b.ov-a.ov);
+  return cands[0].ratio>=0.6 ? cands[0].x : null;
+}
+function putMove(d, mv){
+  if(!mem.logs[d]) mem.logs[d] = {moves:[]};
+  const arr = mem.logs[d].moves;
+  const i = arr.findIndex(m=> m.n===mv.n);
+  if(i>=0) arr[i] = mv; else arr.push(mv);
+}
+function mergeCsv(text){
+  const lines = text.split(/\r?\n/).filter(x=>x.trim());
+  if(lines.length<2) return 0;
+  let n=0;
+  for(let i=1;i<lines.length;i++){
+    const c = splitCsv(lines[i]);
+    const d = c[0];
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    const name = c[2]; if(!name) continue;
+    const ex = findEx(name);
+    const mv = ex ? blankMove(ex) : {n:name,e:"",t:"",g:"",img:"",w:"",s:["","","",""],r:"",cardio:false,dur:"",note:""};
+    if(!ex) mv.n = name;
+    const w = c[3]||"";
+    const reps = [c[4],c[5],c[6],c[7]].map(x=>x||"");
+    if(/^\d+(\.\d+)?$/.test(w)){ mv.w = w; mv.s = reps; }
+    else { mv.dur = w; }
+    putMove(d, mv);
+    n++;
+  }
+  return n;
+}
+function mergeJson(obj){
+  let n=0;
+  const src = obj && (obj.logs || obj.history || null);
+  if(src && !Array.isArray(src)){
+    Object.keys(src).forEach(d=>{
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+      const lg = src[d];
+      (lg.moves||[]).forEach(m=>{
+        const ex = findEx(m.n);
+        const mv = ex ? blankMove(ex) : {n:m.n,e:m.e||"",t:m.t||"",g:m.g||"",img:m.img||"",w:"",s:["","","",""],r:"",cardio:false,dur:"",note:""};
+        mv.w = m.w||""; mv.s = (m.s||["","","",""]).slice(0,4);
+        while(mv.s.length<4) mv.s.push("");
+        if(m.cardio){ mv.cardio=true; mv.dur=m.dur||""; mv.note=m.note||""; }
+        putMove(d, mv);
+        n++;
+      });
+    });
+  }
+  if(obj && obj.profile && !mem.profile.h) mem.profile = obj.profile;
+  return n;
+}
+function readFile(input, cb){
+  const f = input.files && input.files[0];
+  if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=> cb(String(r.result||""));
+  r.readAsText(f, "utf-8");
+}
+document.getElementById("impCsv").onclick = ()=> document.getElementById("fileCsv").click();
+document.getElementById("impJson").onclick = ()=> document.getElementById("fileJson").click();
+document.getElementById("fileCsv").onchange = function(){
+  readFile(this, t=>{
+    const n = mergeCsv(t);
+    store(); renderCal(); renderDay(); renderLast && renderLast();
+    toast(n? "已导入 "+n+" 条记录" : "没解析到记录，检查 CSV 格式");
+    document.getElementById("mePanel").classList.add("hidden");
+  });
+  this.value = "";
+};
+document.getElementById("fileJson").onchange = function(){
+  readFile(this, t=>{
+    let n = 0;
+    try{ n = mergeJson(JSON.parse(t)); }catch(e){ n = 0; }
+    store(); renderCal(); renderDay(); renderLast && renderLast();
+    toast(n? "已导入 "+n+" 条记录" : "没解析到记录，检查 JSON 格式");
+    document.getElementById("mePanel").classList.add("hidden");
+  });
+  this.value = "";
 };
 document.getElementById("imClose").onclick = ()=> document.getElementById("imgSheet").classList.add("hidden");
 document.getElementById("save").onclick = ()=>{
