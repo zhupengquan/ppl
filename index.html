@@ -241,12 +241,12 @@ main{padding:12px}
       数据存在你自己的 GitHub 私有 Gist 里，只有拿着 Token 的人能看。
     </p>
     <div class="cf">
-      <label>GitHub Token（只需 gist 权限）</label>
+      <label>GitHub Token（repo 权限）</label>
       <input id="cToken" placeholder="ghp_... 或 github_pat_..." autocomplete="off">
     </div>
     <div class="cf">
-      <label>Gist ID（留空自动新建）</label>
-      <input id="cGist" placeholder="留空即可" autocomplete="off">
+      <label>数据仓库</label>
+      <input id="cGist" placeholder="用户名/仓库名" autocomplete="off">
     </div>
     <button class="cbtn primary" id="cConnect">连接并同步</button>
     <button class="cbtn ghost" id="cNow">立即同步</button>
@@ -1047,7 +1047,7 @@ function exportCsv(){
 
 // ---------- 云同步 ----------
 const CKEY = "ppl_cloud_v2", GFILE = "ppl-data.json";
-let cloud = {token:"", gist:"", last:0};
+let cloud = {token:"", repo:"zhupengquan/ppl", last:0};
 try{ Object.assign(cloud, JSON.parse(localStorage.getItem(CKEY)||"{}")); }catch(e){}
 function saveCloud(){ try{ localStorage.setItem(CKEY, JSON.stringify(cloud)); }catch(e){} }
 
@@ -1077,20 +1077,31 @@ function normRemote(remote){
   return logs;
 }
 
+function b64enc(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64dec(b64){ return decodeURIComponent(escape(atob(String(b64).replace(/\s/g,"")))); }
+async function repoGet(){
+  try{
+    const r = await ghApi("GET","/repos/"+cloud.repo+"/contents/"+GFILE+"?ref=main&t="+Date.now());
+    return {sha:r.sha, text:b64dec(r.content)};
+  }catch(e){
+    if(String(e.message).indexOf("404")>=0) return null;
+    throw e;
+  }
+}
+async function repoPut(obj){
+  const cur = await repoGet().catch(()=>null);
+  const body = {message:"sync "+new Date().toISOString().slice(0,16).replace("T"," "), content:b64enc(JSON.stringify(obj)), branch:"main"};
+  if(cur && cur.sha) body.sha = cur.sha;
+  await ghApi("PUT","/repos/"+cloud.repo+"/contents/"+GFILE, body);
+}
+
 async function cloudPull(silent){
   if(!cloud.token){ updateCloudUI("off","未连接 · 数据只在本机"); return; }
   try{
     updateCloudUI("sync","同步中…");
-    if(!cloud.gist){
-      const list = await ghApi("GET","/gists?per_page=100");
-      const f = Array.isArray(list) ? list.find(g=> g.files && g.files[GFILE]) : null;
-      if(!f){ updateCloudUI("ok","已连接 · 云端暂无数据"); return; }
-      cloud.gist = f.id; saveCloud();
-    }
-    const g = await ghApi("GET","/gists/"+cloud.gist);
-    const file = g.files && g.files[GFILE];
-    if(!file){ updateCloudUI("ok","云端还没有数据"); return; }
-    const txt = file.truncated ? await (await fetch(file.raw_url)).text() : file.content;
+    const got = await repoGet();
+    if(!got){ updateCloudUI("ok","已连接 · 云端暂无数据"); return; }
+    const txt = got.text;
     const rl = normRemote(JSON.parse(txt));
     let added = 0;
     Object.keys(rl).forEach(d=>{
@@ -1106,14 +1117,7 @@ async function cloudPush(){
   if(!cloud.token) return;
   try{
     updateCloudUI("sync","上传中…");
-    const body = {description:"训练日志", public:false,
-      files:{[GFILE]:{content: JSON.stringify({v:2, logs:mem.logs, t:Date.now()})}}};
-    if(!cloud.gist){
-      const g = await ghApi("POST","/gists", body);
-      cloud.gist = g.id;
-    }else{
-      await ghApi("PATCH","/gists/"+cloud.gist, body);
-    }
+    await repoPut({v:2, logs:mem.logs, profile:mem.profile||{}, t:Date.now()});
     cloud.last = Date.now(); saveCloud();
     updateCloudUI("ok","已上传 · 共 "+Object.keys(mem.logs).length+" 天");
   }catch(e){ updateCloudUI("err","上传失败："+e.message); }
@@ -1135,7 +1139,7 @@ function updateCloudUI(state, msg){
 
 function initCloud(){
   document.getElementById("cToken").value = cloud.token || "";
-  document.getElementById("cGist").value = cloud.gist || "";
+  document.getElementById("cGist").value = cloud.repo || "";
   if(cloud.token){ updateCloudUI("sync","检查云端…"); cloudPull(true); }
   else updateCloudUI("off","未连接 · 数据只在本机");
 }
@@ -1143,19 +1147,19 @@ function initCloud(){
 document.getElementById("cloudBtn").onclick = ()=>{
   document.getElementById("cloudSheet").classList.remove("hidden");
   document.getElementById("cToken").value = cloud.token || "";
-  document.getElementById("cGist").value = cloud.gist || "";
+  document.getElementById("cGist").value = cloud.repo || "";
 };
 document.getElementById("cClose").onclick = ()=> document.getElementById("cloudSheet").classList.add("hidden");
 document.getElementById("cConnect").onclick = ()=>{
   const t = document.getElementById("cToken").value.trim();
-  const g = document.getElementById("cGist").value.trim();
+  const g = document.getElementById("cGist").value.trim() || "zhupengquan/ppl";
   if(!t){ toast("先填 Token"); return; }
-  cloud.token = t; cloud.gist = g; saveCloud();
+  cloud.token = t; cloud.repo = g; saveCloud();
   cloudPull().then(()=> cloudPush());
 };
 document.getElementById("cNow").onclick = ()=>{ if(!cloud.token){ toast("还没连接"); return; } cloudPull().then(()=> cloudPush()); };
 document.getElementById("cOff").onclick = ()=>{
-  cloud = {token:"", gist:"", last:0}; saveCloud();
+  cloud = {token:"", repo:"zhupengquan/ppl", last:0}; saveCloud();
   updateCloudUI("off","已断开 · 数据只在本机");
   document.getElementById("cToken").value = "";
   document.getElementById("cGist").value = "";
