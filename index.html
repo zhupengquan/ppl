@@ -223,6 +223,7 @@ main{padding:12px}
     <div class="psep"></div>
     <button class="pbtn2" id="impCsv">导入 CSV 记录</button>
     <button class="pbtn2" id="impJson">导入 JSON 备份</button>
+    <button class="pbtn2" id="restoreBak">恢复上次数据</button>
     <input type="file" id="fileCsv" accept=".csv,text/csv" style="display:none">
     <input type="file" id="fileJson" accept=".json,application/json" style="display:none">
     <p class="phint" id="impHint">导入是合并：同一天同一个动作会被新数据覆盖，其他记录保留不动。</p>
@@ -756,7 +757,14 @@ function migrate(){
     store();
   }catch(e){}
 }
-function store(){ try{ localStorage.setItem(KEY, JSON.stringify(mem)); }catch(e){} if(typeof scheduleSync==="function") scheduleSync(); }
+function store(){
+  try{
+    const prev = localStorage.getItem(KEY);
+    if(prev && prev !== JSON.stringify(mem)) localStorage.setItem("ppl_log_backup", prev);
+    localStorage.setItem(KEY, JSON.stringify(mem));
+  }catch(e){}
+  if(typeof scheduleSync==="function") scheduleSync();
+}
 
 function blankMove(o){ return {n:o.n||"", e:o.e||"", t:o.t||"", g:o.g||"", img:o.img||"", w:"", s:["","","",""], r:"", cardio:!!o.cardio, dur:"", note:""}; }
 function dayLog(d){ if(!mem.logs[d]) mem.logs[d]={moves:[]}; return mem.logs[d]; }
@@ -1168,8 +1176,8 @@ document.getElementById("cOff").onclick = ()=>{
 
 // ---------- 启动 ----------
 load();
-// 空设备首次打开时，预置已知的历史记录（不动云端、不自动上传）
-if(!Object.keys(mem.logs||{}).length){
+// 空设备首次打开时，预置已知的历史记录（仅当本机完全没有历史数据痕迹时才写入）
+if(!Object.keys(mem.logs||{}).length && !localStorage.getItem(KEY) && !localStorage.getItem(KEY_OLD) && !localStorage.getItem("ppl_log_backup")){
   const SEED = [
     ["2026-10-18","引体向上","","","","",""],
     ["2026-10-21","史密斯推肩","10","10","10","10","10"],
@@ -1345,8 +1353,7 @@ function readFile(input, cb){
   r.onload = ()=> cb(String(r.result||""));
   r.readAsText(f, "utf-8");
 }
-document.getElementById("impCsv").onclick = ()=> document.getElementById("fileCsv").click();
-document.getElementById("impJson").onclick = ()=> document.getElementById("fileJson").click();
+document.getElementById("impCsv").onclick = ()=> document.getElementById("fileCsv").click();document.getElementById("impJson").onclick = ()=> document.getElementById("fileJson").click();
 document.getElementById("fileCsv").onchange = function(){
   readFile(this, t=>{
     const n = mergeCsv(t);
@@ -1365,6 +1372,20 @@ document.getElementById("fileJson").onchange = function(){
     document.getElementById("mePanel").classList.add("hidden");
   });
   this.value = "";
+};
+document.getElementById("restoreBak").onclick = ()=>{
+  let raw = "";
+  try{ raw = localStorage.getItem("ppl_log_backup")||""; }catch(e){}
+  if(!raw){ toast("本机没有备份"); return; }
+  let o = null;
+  try{ o = JSON.parse(raw); }catch(e){ toast("备份读不出来"); return; }
+  let n = 0;
+  Object.keys((o && o.logs) || {}).forEach(d=>{
+    if(!mem.logs[d] || !(mem.logs[d].moves||[]).length){ mem.logs[d] = o.logs[d]; n++; }
+  });
+  store(); renderCal(); renderDay(); renderLast && renderLast();
+  document.getElementById("mePanel").classList.add("hidden");
+  toast(n ? "已恢复 "+n+" 天记录" : "备份里的记录都已经在了");
 };
 document.getElementById("imClose").onclick = ()=> document.getElementById("imgSheet").classList.add("hidden");
 document.getElementById("save").onclick = ()=>{
